@@ -69,8 +69,31 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         environment=settings.environment.value,
     )
 
-    # Schema is owned by Alembic — run `alembic upgrade head` before starting.
-    logger.info("database_ready")
+    # Run Alembic migrations to create/ensure database schema.
+    # Alembic's command.upgrade() calls asyncio.run() internally, so it must run
+    # in a separate thread — we are already inside the async event loop here.
+    try:
+        import asyncio
+        import os
+        from concurrent.futures import ThreadPoolExecutor
+
+        from alembic import command
+        from alembic.config import Config
+
+        alembic_cfg = Config(os.path.join(os.path.dirname(__file__), '..', 'alembic.ini'))
+        alembic_cfg.set_main_option(
+            'script_location', os.path.join(os.path.dirname(__file__), 'db', 'migrations')
+        )
+
+        def _run_alembic() -> None:
+            command.upgrade(alembic_cfg, 'head')
+
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(ThreadPoolExecutor(), _run_alembic)
+        logger.info("database_migrations_run", migrations='head')
+    except Exception as e:
+        logger.warning("database_migrations_skipped", error=str(e))
+        # Continue even if migrations fail — tables may already exist
 
     await init_redis_pool(settings.redis_url)
     await init_arq_pool()

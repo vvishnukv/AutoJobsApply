@@ -1,5 +1,10 @@
 # AutoApply AI — Project Conventions
 
+## Project Ownership
+
+- **Author & Maintainer**: Vishnu (vvishnukv) — the primary owner and decision-maker for this project.
+- **Contributor**: Claude (Anthropic AI Assistant) — assisted with implementation, bug fixes, and Docker deployment.
+
 ## Quick Start
 ```bash
 docker compose up --build        # Start all services
